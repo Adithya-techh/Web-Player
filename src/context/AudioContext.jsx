@@ -239,13 +239,34 @@ export const AudioProvider = ({ children }) => {
     const handleAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
+      const error = urlParams.get('error');
       const clientId = localStorage.getItem('spotify_client_id');
 
-      if (code && clientId) {
+      // Check hash fragment in case implicit grant token returned
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const hashToken = hashParams.get('access_token');
+      if (hashToken) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        loginWithToken(hashToken);
+        return;
+      }
+
+      if (error) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        console.error("Spotify Auth Callback error:", error);
+        alert(`Spotify Login Error: ${error}\nTip: Ensure your Spotify account is added to "User Management" in your Spotify Developer App dashboard.`);
+        return;
+      }
+
+      if (code) {
+        const activeClientId = clientId || prompt("Please enter your Spotify Client ID to complete authentication:");
+        if (!activeClientId) {
+          return;
+        }
         window.history.replaceState({}, document.title, window.location.pathname);
         try {
           setIsSyncingSpotify(true);
-          const tokenData = await exchangeCodeForToken(clientId, code);
+          const tokenData = await exchangeCodeForToken(activeClientId, code);
           await syncSpotifyData(tokenData.access_token, false);
         } catch (err) {
           console.error("Spotify Auth Callback failed:", err);
@@ -253,11 +274,12 @@ export const AudioProvider = ({ children }) => {
         } finally {
           setIsSyncingSpotify(false);
         }
-      } else {
-        const token = await getValidAccessToken();
-        if (token) {
-          syncSpotifyData(token, true);
-        }
+        return;
+      }
+
+      const token = await getValidAccessToken();
+      if (token) {
+        syncSpotifyData(token, true);
       }
     };
 

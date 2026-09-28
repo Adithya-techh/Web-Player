@@ -39,6 +39,9 @@ export async function generateCodeChallenge(codeVerifier) {
 export function getCleanRedirectUri() {
   try {
     const url = new URL(window.location.href);
+    if (url.protocol === 'file:' || !url.origin || url.origin === 'null') {
+      return 'https://adithya-techh.github.io/Web-Player/';
+    }
     let pathname = url.pathname;
     if (pathname.includes('.html')) {
       pathname = pathname.substring(0, pathname.lastIndexOf('/') + 1);
@@ -48,7 +51,7 @@ export function getCleanRedirectUri() {
     }
     return url.origin + pathname;
   } catch (e) {
-    return window.location.origin + '/';
+    return 'https://adithya-techh.github.io/Web-Player/';
   }
 }
 
@@ -63,6 +66,7 @@ export async function redirectToSpotifyAuthorize(clientId) {
   localStorage.setItem('spotify_code_verifier', verifier);
 
   const redirectUri = getCleanRedirectUri();
+  localStorage.setItem('spotify_redirect_uri', redirectUri);
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -82,14 +86,16 @@ export async function redirectToSpotifyAuthorize(clientId) {
  */
 export async function exchangeCodeForToken(clientId, code) {
   const verifier = localStorage.getItem('spotify_code_verifier');
-  const redirectUri = getCleanRedirectUri();
+  const redirectUri = localStorage.getItem('spotify_redirect_uri') || getCleanRedirectUri();
 
   const params = new URLSearchParams();
   params.append('client_id', clientId);
   params.append('grant_type', 'authorization_code');
   params.append('code', code);
   params.append('redirect_uri', redirectUri);
-  params.append('code_verifier', verifier);
+  if (verifier) {
+    params.append('code_verifier', verifier);
+  }
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
@@ -175,5 +181,6 @@ export function clearSpotifyAuth() {
   localStorage.removeItem('spotify_refresh_token');
   localStorage.removeItem('spotify_token_expires_at');
   localStorage.removeItem('spotify_code_verifier');
+  localStorage.removeItem('spotify_redirect_uri');
   localStorage.removeItem('spotify_user_profile');
 }
