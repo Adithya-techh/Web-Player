@@ -33,6 +33,26 @@ export async function generateCodeChallenge(codeVerifier) {
 }
 
 /**
+ * Normalizes redirect URI to remove any file suffixes (e.g. Web Player.html)
+ * and ensure an exact match with the Spotify Developer Dashboard.
+ */
+export function getCleanRedirectUri() {
+  try {
+    const url = new URL(window.location.href);
+    let pathname = url.pathname;
+    if (pathname.includes('.html')) {
+      pathname = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+    }
+    if (!pathname.endsWith('/')) {
+      pathname += '/';
+    }
+    return url.origin + pathname;
+  } catch (e) {
+    return window.location.origin + '/';
+  }
+}
+
+/**
  * Initiates the PKCE redirect to official Spotify login page
  */
 export async function redirectToSpotifyAuthorize(clientId) {
@@ -42,7 +62,7 @@ export async function redirectToSpotifyAuthorize(clientId) {
   localStorage.setItem('spotify_client_id', clientId);
   localStorage.setItem('spotify_code_verifier', verifier);
 
-  const redirectUri = window.location.origin + window.location.pathname;
+  const redirectUri = getCleanRedirectUri();
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -62,7 +82,7 @@ export async function redirectToSpotifyAuthorize(clientId) {
  */
 export async function exchangeCodeForToken(clientId, code) {
   const verifier = localStorage.getItem('spotify_code_verifier');
-  const redirectUri = window.location.origin + window.location.pathname;
+  const redirectUri = getCleanRedirectUri();
 
   const params = new URLSearchParams();
   params.append('client_id', clientId);

@@ -13,7 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
-import { redirectToSpotifyAuthorize } from '../services/spotifyAuth';
+import { redirectToSpotifyAuthorize, getCleanRedirectUri } from '../services/spotifyAuth';
 
 export default function SpotifyLoginModal() {
   const { 
@@ -33,7 +33,7 @@ export default function SpotifyLoginModal() {
 
   if (!isSpotifyModalOpen) return null;
 
-  const currentRedirectUri = window.location.origin + window.location.pathname;
+  const currentRedirectUri = getCleanRedirectUri();
 
   const handleCopyUri = () => {
     navigator.clipboard.writeText(currentRedirectUri);
