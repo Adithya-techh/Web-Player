@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom modern scrollbars with subtle purple tint on hover */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Range input slider styling for Web Player & volume */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background-color 0.2s;
+}
+
+.group:hover input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  margin-top: -4px;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.6);
+}
+
+.group:hover input[type="range"]::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+/* Animated Sound Wave Bars for currently playing song - Purple */
+.sound-bar {
+  display: inline-block;
+  width: 3px;
+  background-color: #a855f7;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.7);
+  animation: soundBars 1.2s ease-in-out infinite alternate;
+}
+.sound-bar:nth-child(1) { height: 12px; animation-delay: 0.1s; }
+.sound-bar:nth-child(2) { height: 18px; animation-delay: 0.4s; }
+.sound-bar:nth-child(3) { height: 8px; animation-delay: 0.2s; }
+.sound-bar:nth-child(4) { height: 15px; animation-delay: 0.5s; }
+
+@keyframes soundBars {
+  0% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1); }
+  100% { transform: scaleY(0.4); }
+}
+
+/* Glassmorphism blur effects */
+.glass-panel {
+  background: rgba(18, 18, 18, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
