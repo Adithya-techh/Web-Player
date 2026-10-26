@@ -68,6 +68,9 @@ export async function redirectToSpotifyAuthorize(clientId) {
   const redirectUri = getCleanRedirectUri();
   localStorage.setItem('spotify_redirect_uri', redirectUri);
 
+  // Encode verifier and clientId into state so cross-domain or storage losses can still recover
+  const statePayload = btoa(JSON.stringify({ v: verifier, c: clientId }));
+
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
@@ -75,6 +78,7 @@ export async function redirectToSpotifyAuthorize(clientId) {
     scope: SPOTIFY_SCOPES,
     code_challenge_method: 'S256',
     code_challenge: challenge,
+    state: statePayload,
     show_dialog: 'true'
   });
 
@@ -84,8 +88,8 @@ export async function redirectToSpotifyAuthorize(clientId) {
 /**
  * Exchanges authorization code for access & refresh tokens
  */
-export async function exchangeCodeForToken(clientId, code) {
-  const verifier = localStorage.getItem('spotify_code_verifier');
+export async function exchangeCodeForToken(clientId, code, explicitVerifier = null) {
+  const verifier = explicitVerifier || localStorage.getItem('spotify_code_verifier');
   const redirectUri = localStorage.getItem('spotify_redirect_uri') || getCleanRedirectUri();
 
   const params = new URLSearchParams();
@@ -100,12 +104,12 @@ export async function exchangeCodeForToken(clientId, code) {
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params
+    body: params.toString()
   });
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error_description || 'Failed to exchange authorization code for Spotify token');
+    throw new Error(errData.error_description || errData.error || `Failed to exchange authorization code for Spotify token (${response.status})`);
   }
 
   const data = await response.json();

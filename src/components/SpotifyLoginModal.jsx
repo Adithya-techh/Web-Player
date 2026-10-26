@@ -66,9 +66,9 @@ export default function SpotifyLoginModal() {
       return;
     }
 
-    const success = await loginWithToken(trimmedToken);
-    if (!success) {
-      setErrorMsg('Invalid or expired token. Please verify and try again.');
+    const res = await loginWithToken(trimmedToken);
+    if (!res || !res.success) {
+      setErrorMsg(res?.error || 'Invalid or expired token. Please verify and try again.');
     } else {
       setIsSpotifyModalOpen(false);
     }
@@ -244,6 +244,11 @@ export default function SpotifyLoginModal() {
                     <div className="flex items-start gap-2">
                       <span className="w-5 h-5 rounded-full bg-[#333333] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">3</span>
                       <p>Copy your <strong>Client ID</strong> from Basic Information and paste it below.</p>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#333333] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">4</span>
+                      <p>In dashboard &gt; <strong>User Management</strong>, make sure your Spotify email address is added (required by Spotify in Development Mode).</p>
                     </div>
                   </div>
                 </div>

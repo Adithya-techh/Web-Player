@@ -107,54 +107,69 @@ export const AudioProvider = ({ children }) => {
       setIsSpotifyAuth(true);
 
       // 2. Playlists (Keep up to date with any newly created or updated playlists)
-      const userPlaylists = await fetchUserPlaylists(token);
-      if (userPlaylists && userPlaylists.length > 0) {
-        setPlaylists(prev => {
-          const nonSpotify = prev.filter(p => !p.isSpotify);
-          const existingSpotifyMap = new Map(
-            prev.filter(p => p.isSpotify).map(p => [p.id, p])
-          );
+      try {
+        const userPlaylists = await fetchUserPlaylists(token);
+        if (userPlaylists && userPlaylists.length > 0) {
+          setPlaylists(prev => {
+            const nonSpotify = prev.filter(p => !p.isSpotify);
+            const existingSpotifyMap = new Map(
+              prev.filter(p => p.isSpotify).map(p => [p.id, p])
+            );
 
-          // Merge to preserve already-loaded track IDs
-          const updatedSpotifyPlaylists = userPlaylists.map(newP => {
-            const existing = existingSpotifyMap.get(newP.id);
-            if (existing) {
-              return {
-                ...newP,
-                trackIds: existing.trackIds && existing.trackIds.length > 0 ? existing.trackIds : newP.trackIds
-              };
-            }
-            return newP;
+            // Merge to preserve already-loaded track IDs
+            const updatedSpotifyPlaylists = userPlaylists.map(newP => {
+              const existing = existingSpotifyMap.get(newP.id);
+              if (existing) {
+                return {
+                  ...newP,
+                  trackIds: existing.trackIds && existing.trackIds.length > 0 ? existing.trackIds : newP.trackIds
+                };
+              }
+              return newP;
+            });
+
+            return [...updatedSpotifyPlaylists, ...nonSpotify];
           });
-
-          return [...updatedSpotifyPlaylists, ...nonSpotify];
-        });
+        }
+      } catch (pErr) {
+        console.warn("Could not load user playlists:", pErr);
       }
 
       // 3. Liked Songs (Sync latest saved tracks from Spotify)
-      const likedTracks = await fetchUserLikedTracks(token);
-      if (likedTracks && likedTracks.length > 0) {
-        setTracks(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const newOnes = likedTracks.filter(t => !existingIds.has(t.id));
-          return [...newOnes, ...prev];
-        });
-        setLikedSongIds(prev => Array.from(new Set([...prev, ...likedTracks.map(t => t.id)])));
+      try {
+        const likedTracks = await fetchUserLikedTracks(token);
+        if (likedTracks && likedTracks.length > 0) {
+          setTracks(prev => {
+            const existingIds = new Set(prev.map(t => t.id));
+            const newOnes = likedTracks.filter(t => !existingIds.has(t.id));
+            return [...newOnes, ...prev];
+          });
+          setLikedSongIds(prev => Array.from(new Set([...prev, ...likedTracks.map(t => t.id)])));
+        }
+      } catch (lErr) {
+        console.warn("Could not load liked tracks:", lErr);
       }
 
       // 4. Top Tracks
-      const topTracks = await fetchUserTopTracks(token);
-      if (topTracks && topTracks.length > 0) {
-        setTracks(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const newOnes = topTracks.filter(t => !existingIds.has(t.id));
-          return [...newOnes, ...prev];
-        });
+      try {
+        const topTracks = await fetchUserTopTracks(token);
+        if (topTracks && topTracks.length > 0) {
+          setTracks(prev => {
+            const existingIds = new Set(prev.map(t => t.id));
+            const newOnes = topTracks.filter(t => !existingIds.has(t.id));
+            return [...newOnes, ...prev];
+          });
+        }
+      } catch (tErr) {
+        console.warn("Could not load top tracks:", tErr);
       }
 
       setLastSyncedAt(Date.now());
     } catch (err) {
-      console.warn("Background sync error with Spotify API:", err);
+      console.warn("Spotify sync error:", err);
+      if (!isSilent) {
+        throw err;
+      }
     } finally {
       if (!isSilent) setIsSyncingSpotify(false);
     }
@@ -240,14 +255,14 @@ export const AudioProvider = ({ children }) => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const error = urlParams.get('error');
-      const clientId = localStorage.getItem('spotify_client_id');
+      const stateParam = urlParams.get('state');
 
       // Check hash fragment in case implicit grant token returned
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       const hashToken = hashParams.get('access_token');
       if (hashToken) {
         window.history.replaceState({}, document.title, window.location.pathname);
-        loginWithToken(hashToken);
+        await loginWithToken(hashToken);
         return;
       }
 
@@ -259,18 +274,31 @@ export const AudioProvider = ({ children }) => {
       }
 
       if (code) {
+        let fallbackVerifier = null;
+        let fallbackClientId = null;
+        if (stateParam) {
+          try {
+            const parsed = JSON.parse(atob(stateParam));
+            fallbackVerifier = parsed.v;
+            fallbackClientId = parsed.c;
+          } catch (e) {}
+        }
+
+        const clientId = localStorage.getItem('spotify_client_id') || fallbackClientId;
         const activeClientId = clientId || prompt("Please enter your Spotify Client ID to complete authentication:");
         if (!activeClientId) {
           return;
         }
+
         window.history.replaceState({}, document.title, window.location.pathname);
         try {
           setIsSyncingSpotify(true);
-          const tokenData = await exchangeCodeForToken(activeClientId, code);
+          const verifier = localStorage.getItem('spotify_code_verifier') || fallbackVerifier;
+          const tokenData = await exchangeCodeForToken(activeClientId, code, verifier);
           await syncSpotifyData(tokenData.access_token, false);
         } catch (err) {
           console.error("Spotify Auth Callback failed:", err);
-          alert(`Spotify login error: ${err.message}`);
+          alert(`Spotify login error: ${err.message}\nTip: If in Spotify Development Mode, ensure your Spotify email is added to User Management.`);
         } finally {
           setIsSyncingSpotify(false);
         }
@@ -289,13 +317,13 @@ export const AudioProvider = ({ children }) => {
   // Direct Token Login
   const loginWithToken = async (manualToken) => {
     try {
+      await syncSpotifyData(manualToken, false);
       localStorage.setItem('spotify_access_token', manualToken);
       localStorage.setItem('spotify_token_expires_at', (Date.now() + 3600000).toString());
-      await syncSpotifyData(manualToken, false);
-      return true;
+      return { success: true };
     } catch (err) {
       console.error("Token login failed:", err);
-      return false;
+      return { success: false, error: err.message };
     }
   };
 
